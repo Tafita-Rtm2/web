@@ -1,0 +1,14 @@
+{
+  "name": "GSI Insight Web",
+  "short_name": "GSI Web",
+  "description": "Where data meets your future.",
+  "start_url": "/web/",
+  "scope": "/web/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3F51B5",
+  "icons": [
+    { "src": "/web/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/web/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
