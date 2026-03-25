@@ -1,0 +1,9 @@
+{
+  "name": "gsi-insight-apk",
+  "version": "0.1.0",
+  "description": "GSI Insight APK Web Version",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

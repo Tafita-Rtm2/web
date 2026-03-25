@@ -1,56 +1,219 @@
-node:internal/modules/cjs/loader:1215
+node:internal/modules/cjs/loader:1143
   throw err;
   ^
 
 Error: Cannot find module 'express'
 Require stack:
-- /home/groupegs/domains/groupesgi.mg/web/server.js
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
 - /usr/local/lsws/fcgi-bin/lsnode.js
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
-    at Module._load (node:internal/modules/cjs/loader:1043:27)
-    at Module.require (node:internal/modules/cjs/loader:1298:19)
-    at require (node:internal/modules/helpers:182:18)
-    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/web/server.js:1:17)
-    at Module._compile (node:internal/modules/cjs/loader:1529:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
-    at Module.load (node:internal/modules/cjs/loader:1275:32)
-    at Module._load (node:internal/modules/cjs/loader:1096:12)
-    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
   code: 'MODULE_NOT_FOUND',
   requireStack: [
-    '/home/groupegs/domains/groupesgi.mg/web/server.js',
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
     '/usr/local/lsws/fcgi-bin/lsnode.js'
   ]
 }
 
-Node.js v20.19.4
-node:internal/modules/cjs/loader:1215
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
   throw err;
   ^
 
 Error: Cannot find module 'express'
 Require stack:
-- /home/groupegs/domains/groupesgi.mg/web/server.js
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
 - /usr/local/lsws/fcgi-bin/lsnode.js
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
-    at Module._load (node:internal/modules/cjs/loader:1043:27)
-    at Module.require (node:internal/modules/cjs/loader:1298:19)
-    at require (node:internal/modules/helpers:182:18)
-    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/web/server.js:1:17)
-    at Module._compile (node:internal/modules/cjs/loader:1529:14)
-    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
-    at Module.load (node:internal/modules/cjs/loader:1275:32)
-    at Module._load (node:internal/modules/cjs/loader:1096:12)
-    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
   code: 'MODULE_NOT_FOUND',
   requireStack: [
-    '/home/groupegs/domains/groupesgi.mg/web/server.js',
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
     '/usr/local/lsws/fcgi-bin/lsnode.js'
   ]
 }
 
-Node.js v20.19.4
-Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
-BrokenPipeError: [Errno 32] Broken pipe
-Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
-BrokenPipeError: [Errno 32] Broken pipe
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v18.20.8
+node:internal/modules/cjs/loader:1143
+  throw err;
+  ^
+
+Error: Cannot find module 'express'
+Require stack:
+- /home/groupegs/domains/groupesgi.mg/apk/server.js
+- /usr/local/lsws/fcgi-bin/lsnode.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+    at Module._load (node:internal/modules/cjs/loader:981:27)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+    at require (node:internal/modules/helpers:177:18)
+    at Object.<anonymous> (/home/groupegs/domains/groupesgi.mg/apk/server.js:1:17)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/groupegs/domains/groupesgi.mg/apk/server.js',
+    '/usr/local/lsws/fcgi-bin/lsnode.js'
+  ]
+}
+
+Node.js v18.20.8
+Error: ENOENT: no such file or directory, stat '/home/groupegs/domains/groupesgi.mg/apk/out/index.html'
+Error: ENOENT: no such file or directory, stat '/home/groupegs/domains/groupesgi.mg/apk/out/index.html'
+Error: ENOENT: no such file or directory, stat '/home/groupegs/domains/groupesgi.mg/apk/out/index.html'
+[PROXY] Request Error: Error: socket hang up
+    at connResetException (node:internal/errors:720:14)
+    at TLSSocket.socketCloseListener (node:_http_client:474:25)
+    at TLSSocket.emit (node:events:529:35)
+    at node:net:350:12
+    at TCP.done (node:_tls_wrap:657:7) {
+  code: 'ECONNRESET'
+}
