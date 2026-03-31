@@ -620,45 +620,59 @@ class GSIStoreClass {
   subscribeGrades(studentId: string, cb: (gs: Grade[]) => void) {
     const subKey = `grades_${studentId}`;
     if (!this.listeners[subKey]) this.listeners[subKey] = [];
-    this.listeners[subKey].push(cb);
-    const applyFilter = (data: Grade[]) => {
+    
+    const wrapper = (data: Grade[]) => {
       cb(data.filter((g: any) => g.studentId === studentId));
     };
-    applyFilter(this.state.grades);
+    
+    this.listeners[subKey].push(wrapper);
+    wrapper(this.state.grades);
     this.fetchCollection('grades', 'grades', `?q={"studentId":"${studentId}"}`);
-    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
+    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
   subscribePayments(matricule: string, cb: (ps: Payment[]) => void) {
-    const subKey = `payments_${matricule}`;
+    const subKey = `paiements_${matricule}`;
     if (!this.listeners[subKey]) this.listeners[subKey] = [];
-    this.listeners[subKey].push(cb);
-    const applyFilter = (data: Payment[]) => {
+    
+    const wrapper = (data: Payment[]) => {
       cb(data.filter((p: any) => p.matricule === matricule));
     };
-    applyFilter(this.state.paiements);
+
+    this.listeners[subKey].push(wrapper);
+    wrapper(this.state.paiements);
     this.fetchCollection('paiements', 'paiements', `?q={"matricule":"${matricule}"}`);
-    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
+    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
   subscribeEcolage(matricule: string, cb: (e: Ecolage | null) => void) {
     const subKey = `ecolage_${matricule}`;
     if (!this.listeners[subKey]) this.listeners[subKey] = [];
-    this.listeners[subKey].push(cb);
-    const applyFilter = (data: Ecolage[]) => {
+    
+    const wrapper = (data: Ecolage[]) => {
       cb(data.find((e: any) => e.matricule === matricule) || null);
     };
-    applyFilter(this.state.ecolage);
+
+    this.listeners[subKey].push(wrapper);
+    wrapper(this.state.ecolage);
     this.fetchCollection('ecolage', 'ecolage', `?q={"matricule":"${matricule}"}`);
-    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
+    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
   subscribeLatestSchedule(campus: string, niveau: string, cb: (s: StructuredSchedule | null) => void) {
     const sKey = campus && niveau ? `${campus}_${niveau}` : 'all';
-    const subKey = `schedule_${sKey}`;
+    const subKey = `schedules_${sKey}`;
     if (!this.listeners[subKey]) this.listeners[subKey] = [];
-    this.listeners[subKey].push(cb);
+    
+    const wrapper = (data: any) => {
+      if (sKey === 'all') {
+        cb(data as any);
+      } else {
+        cb(data[sKey] || null);
+      }
+    };
 
+    this.listeners[subKey].push(wrapper);
     if (sKey === 'all') {
        cb(this.state.schedules as any);
        this.fetchCollection('schedules', 'schedules');
@@ -666,7 +680,7 @@ class GSIStoreClass {
        cb(this.state.schedules[sKey] || null);
        this.fetchCollection('schedules', 'schedules', `?q={"campus":"${campus}","niveau":"${niveau}"}`);
     }
-    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
+    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
   subscribeMessages(cb: (ms: ChatMessage[]) => void) {
@@ -705,18 +719,26 @@ class GSIStoreClass {
   }
 
   subscribeSubmissions(assignmentId?: string, cb?: (ss: Submission[]) => void) {
-    const key = assignmentId ? `submissions_${assignmentId}` : 'submissions';
-    if (!this.listeners[key]) this.listeners[key] = [];
-    if (cb) this.listeners[key].push(cb);
-
-    const filter = (all: Submission[]) => {
-      if (assignmentId) return all.filter(s => s.assignmentId === assignmentId);
-      return all;
+    const subKey = assignmentId ? `submissions_${assignmentId}` : 'submissions';
+    if (!this.listeners[subKey]) this.listeners[subKey] = [];
+    
+    const wrapper = (data: Submission[]) => {
+      if (assignmentId) {
+        if (cb) cb(data.filter(s => s.assignmentId === assignmentId));
+      } else {
+        if (cb) cb(data);
+      }
     };
 
-    if (cb) cb(filter(this.state.submissions));
+    if (cb) this.listeners[subKey].push(wrapper);
+
+    if (cb) {
+      if (assignmentId) cb(this.state.submissions.filter(s => s.assignmentId === assignmentId));
+      else cb(this.state.submissions);
+    }
+    
     this.fetchCollection('submissions', 'submissions');
-    return () => { if (cb) this.listeners[key] = this.listeners[key]?.filter(l => l !== cb); };
+    return () => { if (cb) this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
   // --- ACTIONS ---
