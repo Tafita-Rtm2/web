@@ -7,8 +7,8 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { toast } from 'sonner';
 
 // --- CONFIGURATION ---
-let API_BASE = "https://groupegsi.mg/rtmggmg/api";
-let MEDIA_BASE = "https://groupegsi.mg/rtmggmg";
+let API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://groupegsi.mg/rtmggmg/api";
+let MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE || "https://groupegsi.mg/rtmggmg";
 
 let ADMIN_CODE = "";
 let PROF_PASS = "";
@@ -31,6 +31,32 @@ export interface User {
   matricule?: string;
   contact?: string;
   _id?: string; // API internal ID
+}
+
+export interface Payment {
+  id: string;
+  reference: string;
+  etudiantId: string;
+  etudiantNom: string;
+  matricule: string;
+  campus: string;
+  filiere: string;
+  classe: string;
+  montant: number;
+  date: string;
+  mode: string;
+  agentNom: string;
+  note: string;
+  _id?: string;
+}
+
+export interface Ecolage {
+  id: string;
+  matricule: string;
+  montantDu: number;
+  montantPaye: number;
+  statut: 'paye' | 'en_attente' | 'impaye';
+  _id?: string;
 }
 
 export interface Lesson { id: string; title: string; description: string; subject: string; niveau: string; filiere: string[]; campus: string[]; date: string; files: string[]; _id?: string; }
@@ -103,6 +129,8 @@ interface State {
   aiMessages: any[];
   reminders: Reminder[];
   deletedAnnouncementIds: string[];
+  paiements: Payment[];
+  ecolage: Ecolage[];
 }
 
 const initialState: State = {
@@ -117,7 +145,9 @@ const initialState: State = {
   messages: [],
   aiMessages: [],
   reminders: [],
-  deletedAnnouncementIds: []
+  deletedAnnouncementIds: [],
+  paiements: [],
+  ecolage: []
 };
 
 class GSIStoreClass {
@@ -266,6 +296,8 @@ class GSIStoreClass {
        this.fetchCollection('announcements', 'announcements'),
        this.fetchCollection('grades', 'grades'),
        this.fetchCollection('schedules', 'schedules'),
+       this.fetchCollection('paiements', 'paiements'),
+       this.fetchCollection('ecolage', 'ecolage'),
        this.fetchChatMessages()
      ]);
      this.cleanOfflineFiles();
@@ -405,7 +437,7 @@ class GSIStoreClass {
 
       // HARD DELETE SYNC: Students consume lessons, assignments, announcements, grades.
       // We overwrite with cloud data to propagate deletions.
-      const isConsumable = ['lessons', 'assignments', 'announcements', 'grades'].includes(key as string);
+      const isConsumable = ['lessons', 'assignments', 'announcements', 'grades', 'paiements', 'ecolage'].includes(key as string);
 
       if (isConsumable) {
          merged = cloudData;
@@ -594,6 +626,30 @@ class GSIStoreClass {
     };
     applyFilter(this.state.grades);
     this.fetchCollection('grades', 'grades', `?q={"studentId":"${studentId}"}`);
+    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
+  }
+
+  subscribePayments(matricule: string, cb: (ps: Payment[]) => void) {
+    const subKey = `payments_${matricule}`;
+    if (!this.listeners[subKey]) this.listeners[subKey] = [];
+    this.listeners[subKey].push(cb);
+    const applyFilter = (data: Payment[]) => {
+      cb(data.filter((p: any) => p.matricule === matricule));
+    };
+    applyFilter(this.state.paiements);
+    this.fetchCollection('paiements', 'paiements', `?q={"matricule":"${matricule}"}`);
+    return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
+  }
+
+  subscribeEcolage(matricule: string, cb: (e: Ecolage | null) => void) {
+    const subKey = `ecolage_${matricule}`;
+    if (!this.listeners[subKey]) this.listeners[subKey] = [];
+    this.listeners[subKey].push(cb);
+    const applyFilter = (data: Ecolage[]) => {
+      cb(data.find((e: any) => e.matricule === matricule) || null);
+    };
+    applyFilter(this.state.ecolage);
+    this.fetchCollection('ecolage', 'ecolage', `?q={"matricule":"${matricule}"}`);
     return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== cb); };
   }
 
