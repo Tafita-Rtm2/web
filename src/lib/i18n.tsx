@@ -86,6 +86,20 @@ export const translations: Translations = {
   convocation: { fr: "Convocation", en: "Summons" },
   import_excel: { fr: "Import Excel", en: "Excel Import" },
   moyenne_classe: { fr: "Moyenne de classe", en: "Class average" },
+  mes_recus: { fr: "Mes Reçus", en: "My Receipts" },
+  reçu_details: { fr: "Détails du Reçu", en: "Receipt Details" },
+  montant_paye: { fr: "Montant Payé", en: "Amount Paid" },
+  reste_a_payer: { fr: "Reste à payer", en: "Remaining balance" },
+  reference: { fr: "Référence", en: "Reference" },
+  date_paiement: { fr: "Date de paiement", en: "Payment Date" },
+  mode_paiement: { fr: "Mode de paiement", en: "Payment Mode" },
+  valide_par: { fr: "Validé par", en: "Validated by" },
+  note: { fr: "Note/Motif", en: "Note/Reason" },
+  ecolage_status: { fr: "Statut Ecolage", en: "Tuition Status" },
+  paye: { fr: "Payé", en: "Paid" },
+  en_attente: { fr: "En attente", en: "Pending" },
+  impaye: { fr: "Impayé", en: "Unpaid" },
+  total_du: { fr: "Total Dû", en: "Total Due" },
 };
 
 interface LanguageContextType {
