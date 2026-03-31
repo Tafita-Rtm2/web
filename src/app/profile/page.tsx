@@ -1,14 +1,14 @@
 "use client";
 
 import { AppLayout } from "@/components/app-layout";
-import { Settings, ChevronRight, FileCheck, Award, LogOut, QrCode, X, Camera, ShieldCheck, MapPin, GraduationCap, TrendingUp, Clock } from "lucide-react";
+import { Settings, ChevronRight, FileCheck, Award, LogOut, QrCode, X, Camera, ShieldCheck, MapPin, GraduationCap, TrendingUp, Clock, Receipt, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "@/lib/i18n";
-import { GSIStore, User } from "@/lib/store";
+import { GSIStore, User, Payment, Ecolage } from "@/lib/store";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
@@ -19,6 +19,9 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [ecolage, setEcolage] = useState<Ecolage | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     const currentUser = GSIStore.getCurrentUser();
@@ -26,6 +29,14 @@ export default function ProfilePage() {
       window.location.href = "/apk/login/";
     } else {
       setUser(currentUser);
+      if (currentUser.matricule) {
+        const unsubPay = GSIStore.subscribePayments(currentUser.matricule, (ps) => setPayments(ps));
+        const unsubEco = GSIStore.subscribeEcolage(currentUser.matricule, (e) => setEcolage(e));
+        return () => {
+          unsubPay();
+          unsubEco();
+        };
+      }
     }
   }, [router]);
 
@@ -39,7 +50,7 @@ export default function ProfilePage() {
 
   return (
     <AppLayout>
-      <div className="bg-primary pt-12 pb-24 px-6 rounded-b-[40px] relative">
+      <div className="bg-primary pt-12 pb-24 px-6 rounded-b-[40px] relative max-w-4xl mx-auto md:mt-8 md:rounded-[40px]">
         <div className="flex justify-between items-start mb-8">
           <h1 className="text-2xl font-bold text-white">{t("mon_profil")}</h1>
           <div className="flex gap-2">
@@ -139,8 +150,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="px-6 -mt-16 pb-32">
-        <div className="bg-white rounded-[32px] p-6 shadow-xl mb-6 grid grid-cols-2 gap-4">
+      <div className="px-6 -mt-16 pb-32 max-w-4xl mx-auto">
+        <div className="bg-white rounded-[32px] p-6 shadow-xl mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           <Link href="/performance/" className="flex flex-col items-center p-4 bg-gray-50 rounded-2xl hover:bg-indigo-50 transition-colors active:scale-95">
             <Award className="text-primary mb-2" size={24} />
             <span className="text-[10px] font-black uppercase tracking-widest">{t("reussites")}</span>
@@ -151,20 +162,24 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        <div className="space-y-2 mb-8">
-          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 px-2 mb-4">Espace Personnel</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="space-y-2">
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 px-2 mb-4">Espace Personnel</h3>
 
-          <Link href="/performance/">
-             <ProfileLink icon={TrendingUp} label="Mes Notes & Performance" color="text-indigo-500" />
-          </Link>
-          <Link href="/program/">
-             <ProfileLink icon={Clock} label="Mon Programme d'étude" color="text-emerald-500" />
-          </Link>
-          <Link href="/services/">
-            <ProfileLink icon={FileCheck} label="Documents Administratifs" color="text-orange-500" />
-          </Link>
+            <Link href="/performance/">
+               <ProfileLink icon={TrendingUp} label="Mes Notes & Performance" color="text-indigo-500" />
+            </Link>
+            <Link href="/program/">
+               <ProfileLink icon={Clock} label="Mon Programme d'étude" color="text-emerald-500" />
+            </Link>
+            <Link href="/services/">
+              <ProfileLink icon={FileCheck} label="Documents Administratifs" color="text-orange-500" />
+            </Link>
+            <ProfileLink icon={Settings} label="Paramètres Avancés" color="text-gray-400" />
+          </div>
 
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[40px] p-7 text-white mb-6 mt-6 shadow-xl relative overflow-hidden group">
+          <div className="space-y-4">
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[40px] p-7 text-white shadow-xl relative overflow-hidden group">
               <div className="relative z-10">
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-black text-lg uppercase tracking-tight">Espace Étudiant</h4>
@@ -175,43 +190,169 @@ export default function ProfilePage() {
                   Accéder au Chat
                 </Link>
               </div>
-              <div className="absolute right-[-10px] bottom-[-10px] w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-          </div>
+                <div className="absolute right-[-10px] bottom-[-10px] w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+            </div>
 
-          <div className="p-6 bg-gray-50 rounded-[32px] border border-gray-100 mt-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 ml-2">Préférences Langue</h4>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setLanguage("fr")}
-                className={cn(
-                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
-                  language === "fr" ? "bg-primary text-white" : "bg-white text-gray-500"
-                )}
-              >
-                Français
-              </button>
-              <button
-                onClick={() => setLanguage("en")}
-                className={cn(
-                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
-                  language === "en" ? "bg-primary text-white" : "bg-white text-gray-500"
-                )}
-              >
-                English
-              </button>
+            <div className="p-6 bg-gray-50 rounded-[32px] border border-gray-100 mt-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 ml-2">Préférences Langue</h4>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setLanguage("fr")}
+                  className={cn(
+                    "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                    language === "fr" ? "bg-primary text-white" : "bg-white text-gray-500"
+                  )}
+                >
+                  Français
+                </button>
+                <button
+                  onClick={() => setLanguage("en")}
+                  className={cn(
+                    "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                    language === "en" ? "bg-primary text-white" : "bg-white text-gray-500"
+                  )}
+                >
+                  English
+                </button>
+              </div>
             </div>
           </div>
-          <ProfileLink icon={Settings} label="Paramètres Avancés" color="text-gray-400" />
+        </div>
+
+        {/* SECTION REÇUS */}
+        <div className="space-y-4 mb-8">
+           <div className="flex items-center justify-between px-2">
+             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">{t("mes_recus")}</h3>
+             {ecolage && (
+               <div className={cn(
+                 "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
+                 ecolage.statut === 'paye' ? "bg-emerald-100 text-emerald-700" :
+                 ecolage.statut === 'en_attente' ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+               )}>
+                 {t(ecolage.statut)}
+               </div>
+             )}
+           </div>
+
+           {ecolage && (
+             <div className="bg-white rounded-[32px] p-6 shadow-md border border-gray-100 grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                   <p className="text-[10px] font-bold text-gray-400 uppercase">{t("total_du")}</p>
+                   <p className="text-lg font-black text-primary">{ecolage.montantDu.toLocaleString()} Ar</p>
+                </div>
+                <div className="space-y-1">
+                   <p className="text-[10px] font-bold text-gray-400 uppercase">{t("reste_a_payer")}</p>
+                   <p className="text-lg font-black text-accent">{(ecolage.montantDu - ecolage.montantPaye).toLocaleString()} Ar</p>
+                </div>
+             </div>
+           )}
+
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+             {payments.length > 0 ? (
+               payments.map((p) => (
+                 <button
+                   key={p.id}
+                   onClick={() => setSelectedPayment(p)}
+                   className="w-full bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm border border-gray-50 active:scale-[0.98] transition-transform"
+                 >
+                   <div className="flex items-center gap-4 text-left">
+                     <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
+                       <Receipt size={24} />
+                     </div>
+                     <div>
+                       <h4 className="font-bold text-gray-800 text-sm">{p.note || "Paiement Ecolage"}</h4>
+                       <p className="text-[10px] font-medium text-gray-400">{new Date(p.date).toLocaleDateString()}</p>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <p className="font-black text-indigo-600">{p.montant.toLocaleString()} Ar</p>
+                     <p className="text-[8px] font-bold text-gray-300 uppercase tracking-tighter">{p.reference}</p>
+                   </div>
+                 </button>
+               ))
+             ) : (
+               <div className="text-center py-8 bg-gray-50 rounded-[32px] border-2 border-dashed border-gray-200">
+                 <p className="text-gray-400 text-xs font-medium">Aucun reçu disponible</p>
+               </div>
+             )}
+           </div>
         </div>
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-3 py-5 text-red-500 font-black uppercase tracking-widest bg-red-50 rounded-[28px] mb-12 active:scale-95 transition-all border border-red-100 shadow-sm"
+          className="w-full max-w-xs mx-auto flex items-center justify-center gap-3 py-5 text-red-500 font-black uppercase tracking-widest bg-red-50 rounded-[28px] mb-12 active:scale-95 transition-all border border-red-100 shadow-sm"
         >
           <LogOut size={20} />
           <span>Déconnexion du compte</span>
         </button>
       </div>
+
+      {selectedPayment && (
+        <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white rounded-[40px] w-full max-w-sm overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-300">
+             <div className="bg-indigo-600 p-8 text-white text-center relative">
+               <button
+                  onClick={() => setSelectedPayment(null)}
+                  className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-2xl text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                   <Receipt size={32} />
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-tight">{t("reçu_details")}</h3>
+                <p className="text-xs opacity-70 mt-1">{selectedPayment.reference}</p>
+             </div>
+
+             <div className="p-8 space-y-6">
+                <div className="flex justify-between items-center pb-4 border-bottom border-dashed border-gray-200">
+                   <div className="space-y-1">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t("montant_paye")}</p>
+                      <p className="text-2xl font-black text-indigo-600">{selectedPayment.montant.toLocaleString()} Ar</p>
+                   </div>
+                   <div className="bg-indigo-50 p-3 rounded-2xl">
+                      <CreditCard className="text-indigo-600" size={24} />
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-1">
+                      <p className="text-[10px] font-black text-gray-400 uppercase">{t("date_paiement")}</p>
+                      <p className="text-xs font-bold text-gray-700">{new Date(selectedPayment.date).toLocaleDateString()}</p>
+                   </div>
+                   <div className="space-y-1">
+                      <p className="text-[10px] font-black text-gray-400 uppercase">{t("mode_paiement")}</p>
+                      <p className="text-xs font-bold text-gray-700">{selectedPayment.mode}</p>
+                   </div>
+                </div>
+
+                <div className="space-y-3">
+                   <div className="p-4 bg-gray-50 rounded-2xl space-y-1">
+                      <p className="text-[10px] font-black text-gray-400 uppercase">{t("note")}</p>
+                      <p className="text-xs font-medium text-gray-700">{selectedPayment.note || "N/A"}</p>
+                   </div>
+                   <div className="p-4 bg-emerald-50 rounded-2xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                         <ShieldCheck size={16} />
+                      </div>
+                      <div>
+                         <p className="text-[8px] font-black text-emerald-800 uppercase tracking-widest">{t("valide_par")}</p>
+                         <p className="text-[10px] font-bold text-emerald-700">{selectedPayment.agentNom}</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="pt-4 flex flex-col items-center gap-4">
+                   <div className="w-24 h-24 p-2 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                      <QRCodeCanvas value={selectedPayment.reference} size={80} />
+                   </div>
+                   <p className="text-[8px] text-gray-400 text-center uppercase tracking-[0.2em]">Ce reçu est un document numérique officiel du Groupe GSI Internationale.</p>
+                </div>
+             </div>
+             <div className="h-3 bg-indigo-600 w-full"></div>
+          </div>
+        </div>
+      )}
 
       {showQr && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
