@@ -169,7 +169,7 @@ export default function Home() {
 
   return (
     <AppLayout>
-      <div className="p-6 pb-24 max-w-md mx-auto bg-[#F8FAFC] min-h-screen">
+      <div className="p-6 pb-24 max-w-4xl mx-auto bg-[#F8FAFC] min-h-screen">
         {/* Sync Indicator */}
         <div className="flex justify-center mb-4">
            <div className={cn(
@@ -229,7 +229,7 @@ export default function Home() {
         <div className="mb-8">
            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4 px-1">Votre journée en un coup d’œil</h3>
 
-           <div className="grid grid-cols-1 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-white p-5 rounded-[32px] border border-gray-100 shadow-sm relative overflow-hidden group">
                  <div className="flex justify-between items-start mb-4">
                     <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
@@ -306,7 +306,7 @@ export default function Home() {
         </div>
 
         {/* AI Card */}
-        <Link href="/chat/" className="block mb-10 group active:scale-[0.98] transition-all">
+        <Link href="/chat/" className="block mb-10 group active:scale-[0.98] transition-all max-w-2xl mx-auto md:mx-0">
            <div className="bg-gradient-to-br from-[#3F51B5] via-[#5C6BC0] to-[#7986CB] p-7 rounded-[44px] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden">
               <div className="relative z-10">
                  <div className="flex items-center gap-2 mb-2">
