@@ -238,11 +238,11 @@ export default function ProfilePage() {
              <div className="bg-white rounded-[32px] p-6 shadow-md border border-gray-100 grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                    <p className="text-[10px] font-bold text-gray-400 uppercase">{t("total_du")}</p>
-                   <p className="text-lg font-black text-primary">{ecolage.montantDu.toLocaleString()} Ar</p>
+                   <p className="text-lg font-black text-primary">{(ecolage.montantDu || 0).toLocaleString()} Ar</p>
                 </div>
                 <div className="space-y-1">
                    <p className="text-[10px] font-bold text-gray-400 uppercase">{t("reste_a_payer")}</p>
-                   <p className="text-lg font-black text-accent">{(ecolage.montantDu - ecolage.montantPaye).toLocaleString()} Ar</p>
+                   <p className="text-lg font-black text-accent">{((ecolage.montantDu || 0) - (ecolage.montantPaye || 0)).toLocaleString()} Ar</p>
                 </div>
              </div>
            )}
@@ -305,10 +305,10 @@ export default function ProfilePage() {
              </div>
 
              <div className="p-8 space-y-6">
-                <div className="flex justify-between items-center pb-4 border-bottom border-dashed border-gray-200">
+                <div className="flex justify-between items-center pb-4 border-b border-dashed border-gray-200">
                    <div className="space-y-1">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t("montant_paye")}</p>
-                      <p className="text-2xl font-black text-indigo-600">{selectedPayment.montant.toLocaleString()} Ar</p>
+                      <p className="text-2xl font-black text-indigo-600">{(selectedPayment.montant || 0).toLocaleString()} Ar</p>
                    </div>
                    <div className="bg-indigo-50 p-3 rounded-2xl">
                       <CreditCard className="text-indigo-600" size={24} />
@@ -318,11 +318,11 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-6">
                    <div className="space-y-1">
                       <p className="text-[10px] font-black text-gray-400 uppercase">{t("date_paiement")}</p>
-                      <p className="text-xs font-bold text-gray-700">{new Date(selectedPayment.date).toLocaleDateString()}</p>
+                      <p className="text-xs font-bold text-gray-700">{selectedPayment.date ? new Date(selectedPayment.date).toLocaleDateString() : "N/A"}</p>
                    </div>
                    <div className="space-y-1">
                       <p className="text-[10px] font-black text-gray-400 uppercase">{t("mode_paiement")}</p>
-                      <p className="text-xs font-bold text-gray-700">{selectedPayment.mode}</p>
+                      <p className="text-xs font-bold text-gray-700">{selectedPayment.mode || "N/A"}</p>
                    </div>
                 </div>
 
