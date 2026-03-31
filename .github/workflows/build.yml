@@ -1,0 +1,43 @@
+name: Build and Package GSI Insight
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Package for cPanel
+        run: |
+          mkdir deploy
+          cp -r out deploy/
+          cp server.js deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          if [ -f .env ]; then cp .env deploy/; fi
+          # Optionally create a production zip
+          zip -r gsi-insight-build.zip deploy/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gsi-insight-package
+          path: deploy/
+
