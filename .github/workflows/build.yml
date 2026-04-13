@@ -21,18 +21,28 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Next.js
-        run: npm run build
+      - name: Build Next.js (Sécurisé)
+        # Désactive la génération des Source Maps pour cacher le dossier src
+        run: GENERATE_SOURCEMAP=false npm run build
 
       - name: Package for cPanel
         run: |
-          mkdir deploy
+          # Création du dossier de déploiement
+          mkdir -p deploy
+
+          # Nettoyage des fichiers de débogage dans le dossier out avant la copie
+          find out/ -name "*.map" -type f -delete
+
+          # Copie sécurisée des fichiers
           cp -r out deploy/
           cp server.js deploy/
           cp package.json deploy/
           cp package-lock.json deploy/
+          
+          # Copie du fichier .env si présent
           if [ -f .env ]; then cp .env deploy/; fi
-          # Optionally create a production zip
+          
+          # Création du zip de production
           zip -r gsi-insight-build.zip deploy/
 
       - name: Upload artifact
@@ -40,4 +50,4 @@ jobs:
         with:
           name: gsi-insight-package
           path: deploy/
-
+          include-hidden-files: false
