@@ -7,8 +7,11 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { toast } from 'sonner';
 
 // --- CONFIGURATION ---
-let API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://groupegsi.mg/rtmggmg/api";
-let MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE || "https://groupegsi.mg/rtmggmg";
+// On utilise les proxys sécurisés du serveur Node.js (server.js)
+// Les URLs réelles de la base de données sont masquées côté serveur.
+let API_BASE = "/apk/api/v2";
+let MEDIA_BASE = "/apk/api/proxy";
+let SESSION_TOKEN = "";
 
 let ADMIN_CODE = "";
 let PROF_PASS = "";
@@ -160,27 +163,17 @@ class GSIStoreClass {
   constructor() {
     if (typeof window !== 'undefined') {
       this.hydrate();
-      this.initWebConfig();
       // Wait a bit before syncing to let UI render first
       setTimeout(() => this.startGlobalSync(), 2000);
       window.addEventListener('beforeunload', () => this.saveImmediate());
     }
   }
 
-  private async initWebConfig() {
-    if (Capacitor.isNativePlatform()) return;
-    try {
-      const res = await fetch('/apk/api/config');
-      if (res.ok) {
-        const config = await res.json();
-        if (config.API_BASE) API_BASE = config.API_BASE;
-        if (config.MEDIA_BASE) MEDIA_BASE = config.MEDIA_BASE;
-      }
-    } catch (e) {}
-  }
-
   private hydrate() {
     try {
+      const savedToken = localStorage.getItem('gsi_session_token');
+      if (savedToken) SESSION_TOKEN = savedToken;
+
       const saved = localStorage.getItem('gsi_v8_master');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -361,21 +354,36 @@ class GSIStoreClass {
     this.syncingCount++;
     this.notify('sync_status', true);
 
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    // Si on est sur Web, on utilise le proxy relatif
+    // Si on est sur Mobile (Capacitor), on pourrait avoir besoin de l'URL absolue du serveur local/distant
+    let url = endpoint;
+    if (!endpoint.startsWith('http')) {
+      const base = API_BASE;
+      url = `${base}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    }
 
     try {
       let response: any;
 
       if (Capacitor.isNativePlatform()) {
-        const options = {
+        const options: any = {
           url,
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-GSI-Session-Token': SESSION_TOKEN
+          },
           data: body,
           connectTimeout: 15000,
           readTimeout: 15000
         };
         response = await CapacitorHttp.request(options);
+
+        const newToken = response.headers['X-GSI-Session-Token'] || response.headers['x-gsi-session-token'];
+        if (newToken) {
+          SESSION_TOKEN = newToken;
+          localStorage.setItem('gsi_session_token', SESSION_TOKEN);
+        }
 
         if (response.status >= 300 && response.status < 400) {
           const location = response.headers['Location'] || response.headers['location'];
@@ -389,12 +397,22 @@ class GSIStoreClass {
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         const options: RequestInit = {
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-GSI-Session-Token': SESSION_TOKEN
+          },
           signal: controller.signal,
           body: body ? JSON.stringify(body) : undefined
         };
         const res = await fetch(url, options);
         clearTimeout(timeoutId);
+
+        const newToken = res.headers.get('X-GSI-Session-Token');
+        if (newToken) {
+          SESSION_TOKEN = newToken;
+          localStorage.setItem('gsi_session_token', SESSION_TOKEN);
+        }
+
         response = {
           status: res.status,
           data: await res.json(),
@@ -536,6 +554,8 @@ class GSIStoreClass {
 
   logout() {
     this.setCurrentUser(null);
+    SESSION_TOKEN = "";
+    localStorage.removeItem('gsi_session_token');
   }
 
   async resetPassword(email: string): Promise<boolean> {
@@ -1000,51 +1020,38 @@ class GSIStoreClass {
 
   getAbsoluteUrl(url: string | undefined): string {
     if (typeof url !== 'string' || !url || url === "undefined" || url === "null") return "";
-
     if (url.startsWith('data:') || url.startsWith('blob:')) return url;
 
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-       if (url.includes('groupegsi.mg') && !url.includes('/api/')) {
-          return url.replace('rtmggmg/', 'rtmggmg/api/');
-       }
-       return url;
+    // Si l'URL est déjà absolue (ex: provenant d'une autre source)
+    if (url.startsWith('http')) return url;
+
+    // On nettoie le chemin pour l'envoyer au proxy
+    let clean = url.replace(/^\/+/, '').replace(/^rtmggmg\//, '').replace(/^api\//, '').replace(/^\/+/, '');
+
+    if (!clean.includes('files/view/') && !clean.includes('http') && !clean.includes('/') && clean.length > 5) {
+      clean = `files/view/${clean}`;
     }
 
-    if (url.includes(' ') && !url.startsWith('/') && !url.startsWith('files/') && !url.startsWith('api/') && url.length > 20) {
-       return url;
-    }
-
-    let clean = url;
-    clean = clean.replace(/^\/+/, '');
-    clean = clean.replace(/^rtmggmg\//, '');
-    clean = clean.replace(/^api\//, '');
-    clean = clean.replace(/^\/+/, '');
-
-    if (!clean.includes('files/view/') && !clean.includes('http')) {
-       if (!clean.includes('/') && clean.length > 5) {
-         clean = `files/view/${clean}`;
-       }
-    }
-
-    const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
-    return `${base}/${clean}`;
+    // On retourne le chemin relatif vers notre proxy API V2
+    return `${API_BASE}/${clean}`;
   }
 
   getMediaUrl(url: string | undefined): string {
     if (typeof url !== 'string' || !url) return "";
-
     if (url.startsWith('blob:') || url.startsWith('data:')) return url;
 
-    const absolute = this.getAbsoluteUrl(url);
-    if (!absolute) return "";
+    // Si c'est déjà une URL de proxy, on la garde
+    if (url.startsWith('/apk/api/proxy')) return url;
 
-    if (Capacitor.isNativePlatform()) return absolute;
-
-    if (absolute.startsWith('http')) {
-      return `/apk/api/proxy?url=${encodeURIComponent(absolute)}`;
+    // Pour les médias, on passe TOUJOURS par le proxy media
+    // On construit l'URL cible (que le serveur connaît comme étant sous API_BASE ou MEDIA_BASE)
+    let target = url;
+    if (!url.startsWith('http')) {
+       // On laisse le serveur décider du domaine réel
+       // On envoie juste le path au proxy
     }
 
-    return absolute;
+    return `${MEDIA_BASE}?url=${encodeURIComponent(url)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   }
 
   getStudentQrData(user: User): string {
