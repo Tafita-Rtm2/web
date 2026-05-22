@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 // --- CONFIGURATION ---
 // On utilise les proxys sécurisés du serveur Node.js (server.js)
 // Les URLs réelles de la base de données sont masquées côté serveur.
-let API_BASE = "/apk/api/v2";
-let MEDIA_BASE = "/apk/api/proxy";
+let API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/apk/api/v2";
+let MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE || "/apk/api/proxy";
 let SESSION_TOKEN = "";
 
 let ADMIN_CODE = "";
@@ -1040,18 +1040,13 @@ class GSIStoreClass {
     if (typeof url !== 'string' || !url) return "";
     if (url.startsWith('blob:') || url.startsWith('data:')) return url;
 
-    // Si c'est déjà une URL de proxy, on la garde
-    if (url.startsWith('/apk/api/proxy')) return url;
+    // Si on est déjà sur le proxy ou si c'est une URL externe
+    if (url.includes('/api/proxy') || (url.startsWith('http') && !url.includes('groupegsi.mg'))) return url;
 
-    // Pour les médias, on passe TOUJOURS par le proxy media
-    // On construit l'URL cible (que le serveur connaît comme étant sous API_BASE ou MEDIA_BASE)
-    let target = url;
-    if (!url.startsWith('http')) {
-       // On laisse le serveur décider du domaine réel
-       // On envoie juste le path au proxy
-    }
-
-    return `${MEDIA_BASE}?url=${encodeURIComponent(url)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
+    // Pour les médias du domaine GSI, on passe par le proxy
+    const absolute = this.getAbsoluteUrl(url);
+    const connector = MEDIA_BASE.includes('?') ? '&' : '?';
+    return `${MEDIA_BASE}${connector}url=${encodeURIComponent(absolute)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   }
 
   getStudentQrData(user: User): string {
