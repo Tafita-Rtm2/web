@@ -7,8 +7,8 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { toast } from 'sonner';
 
 // --- CONFIGURATION ---
-let API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://groupegsi.mg/rtmggmg/api";
-let MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE || "https://groupegsi.mg/rtmggmg";
+let API_BASE = "/apk/api/v1";
+let MEDIA_BASE = "/apk/api/proxy";
 
 let ADMIN_CODE = "";
 let PROF_PASS = "";
@@ -173,8 +173,7 @@ class GSIStoreClass {
       const res = await fetch('/apk/api/config');
       if (res.ok) {
         const config = await res.json();
-        if (config.API_BASE) API_BASE = config.API_BASE;
-        if (config.MEDIA_BASE) MEDIA_BASE = config.MEDIA_BASE;
+        console.log("[CONFIG] Security Proxy Enabled:", config.PROXY_ENABLED);
       }
     } catch (e) {}
   }
@@ -362,15 +361,19 @@ class GSIStoreClass {
     this.notify('sync_status', true);
 
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    const proxyToken = typeof window !== 'undefined' ? localStorage.getItem('gsi_proxy_token') : null;
 
     try {
       let response: any;
 
       if (Capacitor.isNativePlatform()) {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (proxyToken) headers['X-GSI-Proxy-Token'] = proxyToken;
+
         const options = {
           url,
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           data: body,
           connectTimeout: 15000,
           readTimeout: 15000
@@ -387,9 +390,13 @@ class GSIStoreClass {
       } else {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (proxyToken) headers['X-GSI-Proxy-Token'] = proxyToken;
+
         const options: RequestInit = {
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           signal: controller.signal,
           body: body ? JSON.stringify(body) : undefined
         };
@@ -406,6 +413,11 @@ class GSIStoreClass {
       if (this.syncingCount === 0) this.notify('sync_status', false);
 
       if (response.status >= 200 && response.status < 300) {
+        // Intercept token from proxy
+        if (response.data && response.data.proxyToken) {
+           localStorage.setItem('gsi_proxy_token', response.data.proxyToken);
+        }
+
         if (method === 'GET') {
            this.apiCache[endpoint] = { data: response.data, ts: Date.now() };
         }
@@ -536,6 +548,7 @@ class GSIStoreClass {
 
   logout() {
     this.setCurrentUser(null);
+    localStorage.removeItem('gsi_proxy_token');
   }
 
   async resetPassword(email: string): Promise<boolean> {
@@ -1003,10 +1016,8 @@ class GSIStoreClass {
 
     if (url.startsWith('data:') || url.startsWith('blob:')) return url;
 
+    // If it's already an absolute URL to groupegsi.mg, we keep it but the proxy will handle it
     if (url.startsWith('http://') || url.startsWith('https://')) {
-       if (url.includes('groupegsi.mg') && !url.includes('/api/')) {
-          return url.replace('rtmggmg/', 'rtmggmg/api/');
-       }
        return url;
     }
 
@@ -1026,6 +1037,7 @@ class GSIStoreClass {
        }
     }
 
+    // Since API_BASE is now "/apk/api/v1", this will return something like "/apk/api/v1/files/view/..."
     const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
     return `${base}/${clean}`;
   }
@@ -1038,10 +1050,11 @@ class GSIStoreClass {
     const absolute = this.getAbsoluteUrl(url);
     if (!absolute) return "";
 
-    if (Capacitor.isNativePlatform()) return absolute;
+    const proxyToken = typeof window !== 'undefined' ? localStorage.getItem('gsi_proxy_token') : "";
 
+    // We always use the proxy for media to keep MEDIA_BASE hidden
     if (absolute.startsWith('http')) {
-      return `/apk/api/proxy?url=${encodeURIComponent(absolute)}`;
+      return `/apk/api/proxy?url=${encodeURIComponent(absolute)}&token=${proxyToken}`;
     }
 
     return absolute;
