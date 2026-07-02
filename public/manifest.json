@@ -1,0 +1,21 @@
+{
+  "name": "GSI Internationale",
+  "short_name": "GSI",
+  "description": "Your future starts here.",
+  "start_url": "/apk/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3F51B5",
+  "icons": [
+    {
+      "src": "/apk/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/apk/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
