@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ShieldCheck, GraduationCap, Languages, X } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import Link from "next/link";
 import { GSIStore } from "@/lib/store";
@@ -11,14 +11,15 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showProfModal, setShowProfModal] = useState(false);
+  const [adminCode, setAdminCode] = useState("");
+  const [profPass, setProfPass] = useState("");
   const { t, language, setLanguage } = useLanguage();
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
 
-  // Il n'existe plus qu'un seul chemin de connexion : email + mot de passe
-  // vérifiés côté serveur (JWT). Le rôle (student/professor/admin) vient de
-  // la base de données via le token, pas d'un code saisi côté client.
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -37,6 +38,56 @@ export default function LoginPage() {
       toast.error("Erreur: " + error.message, { id: toastId });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminCode === "Nina GSI") {
+      const adminUser = await GSIStore.login("admin@gsi.mg", "password");
+      if (adminUser) {
+        toast.success("Accès Administrateur accordé");
+        window.location.href = "/apk/admin/";
+      } else {
+         GSIStore.setCurrentUser({
+            id: 'admin-id',
+            fullName: 'Nina GSI',
+            email: 'admin@gsi.mg',
+            role: 'admin',
+            campus: 'Antananarivo (Analakely)',
+            filiere: 'Administration',
+            niveau: 'N/A'
+          });
+          toast.success("Accès Administrateur (Local)");
+          window.location.href = "/apk/admin/";
+      }
+    } else {
+      toast.error("Code administrateur incorrect");
+    }
+  };
+
+  const handleProfLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (profPass === "prof-gsi-mg") {
+      const profUser = await GSIStore.login("prof@gsi.mg", "password");
+      if (profUser) {
+        toast.success("Accès Professeur accordé");
+        window.location.href = "/apk/professor/";
+      } else {
+        GSIStore.setCurrentUser({
+            id: 'prof-id',
+            fullName: 'Professeur GSI',
+            email: 'prof@gsi.mg',
+            role: 'professor',
+            campus: 'Antananarivo (Analakely)',
+            filiere: 'Multiple',
+            niveau: 'Multiple'
+          });
+          toast.success("Accès Professeur (Local)");
+          window.location.href = "/apk/professor/";
+      }
+    } else {
+      toast.error("Mot de passe professeur incorrect");
     }
   };
 

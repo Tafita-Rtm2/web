@@ -28,8 +28,6 @@ export default function AdminCreatPage() {
       niveau: formData.get("niveau") as string,
       matricule: formData.get("matricule") as string,
       contact: formData.get("contact") as string,
-      // Requis par le serveur pour créer un compte admin/professeur (jamais vérifié côté client)
-      inviteCode: formData.get("inviteCode") as string,
     };
 
     try {
@@ -106,11 +104,6 @@ export default function AdminCreatPage() {
                  {ALL_FILIERES.map(f => <option key={f} value={f}>{f}</option>)}
                  <option value="Administration">Administration</option>
               </select>
-           </div>
-
-           <div className="relative">
-              <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input name="inviteCode" type="password" className="w-full bg-gray-50 rounded-2xl py-4 pl-12 pr-4 outline-none text-sm font-bold" placeholder="Code d'invitation (requis pour Prof/Admin)" />
            </div>
 
            <input name="matricule" className="w-full bg-gray-50 rounded-2xl py-4 px-4 outline-none text-sm font-bold" placeholder="Matricule (Optionnel)" />

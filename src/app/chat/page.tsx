@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { GSIStore, User } from "@/lib/store";
 import { PageHeader } from "@/components/page-header";
 import { toast } from "sonner";
-import OpenAI from "openai";
 import ReactMarkdown from 'react-markdown';
 
 interface ChatMessage {
@@ -67,18 +66,9 @@ export default function ChatPage() {
     setIsTyping(true);
 
     try {
-      const config = GSIStore.getAIConfig();
-      if (!config.apiKey) {
-         throw new Error("Configuration IA manquante. Contactez un administrateur.");
-      }
-
-      const openai = new OpenAI({ apiKey: config.apiKey, dangerouslyAllowBrowser: true });
-
       // Build context-aware system prompt
       const campus = user?.campus || "Antananarivo";
       const subject = user?.filiere || "Général";
-      const promptKey = `${campus}_${subject}`;
-      const systemPrompt = config.prompts[promptKey] || config.prompts[`${campus}_Général`] || "Tu es l'Agent Assistant, le conseiller IA personnel du Groupe GSI. Tu aides les étudiants avec leurs cours, exercices et vie de campus. Réponds toujours avec professionnalisme, empathie et utilise le Markdown pour structurer tes réponses (tableaux, code, titres).";
 
       // Fetch relevant academic context
       const lessons = (await GSIStore.getLessons()).filter(l => l.niveau === user?.niveau).slice(0, 3);
@@ -100,39 +90,22 @@ export default function ChatPage() {
         Devoirs à faire: ${Array.isArray(assignments) ? assignments.map(a => (a?.title || "Devoir") + " (DL: " + (a?.deadline || "N/A") + ")").join(', ') : "Aucun"}
       `;
 
-      const apiMessages: any[] = [
-        { role: "system", content: systemPrompt + "\n\n" + contextText }
-      ];
-
-      // Add last few messages for conversation history
-      messages.slice(-10).forEach(m => {
-        apiMessages.push({ role: m.role, content: m.content });
+      // L'appel au modèle IA passe désormais par le backend : la clé API
+      // n'est jamais présente dans le navigateur (voir /api/ai/chat côté serveur).
+      const responseText = await GSIStore.callAI({
+        campus,
+        subject,
+        contextText,
+        history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+        userMessage,
+        imageDataUrl: currentImage
       });
 
-      // Add current user message
-      if (currentImage) {
-        apiMessages.push({
-          role: "user",
-          content: [
-            { type: "text", text: userMessage || "Analyse cette image pour m'aider dans mes études." },
-            { type: "image_url", image_url: { url: currentImage } }
-          ]
-        });
-      } else {
-        apiMessages.push({ role: "user", content: userMessage });
-      }
-
-      const completion = await openai.chat.completions.create({
-        model: currentImage ? "gpt-4o" : "gpt-3.5-turbo",
-        messages: apiMessages,
-      });
-
-      const responseText = completion.choices[0].message.content || "Je n'ai pas pu générer de réponse.";
-      GSIStore.setAiMessages([...newMessages, { role: "assistant", content: responseText }]);
+      GSIStore.setAiMessages([...newMessages, { role: "assistant", content: responseText || "Je n'ai pas pu générer de réponse." }]);
 
     } catch (err: any) {
       toast.error(err.message);
-      GSIStore.setAiMessages([...newMessages, { role: "assistant", content: "Désolée, j'ai une difficulté technique (OpenAI). Vérifiez la clé API ou votre connexion." }]);
+      GSIStore.setAiMessages([...newMessages, { role: "assistant", content: "Désolée, j'ai une difficulté technique. Vérifiez votre connexion ou réessayez plus tard." }]);
     } finally {
       setIsTyping(false);
     }

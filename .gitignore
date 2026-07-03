@@ -1,0 +1,27 @@
+# Dépendances
+node_modules/
+
+# Builds
+out/
+.next/
+tmp/
+build/
+dist/
+
+# Secrets -- NE JAMAIS committer
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Capacitor / Android
+android/app/build/
+android/.gradle/
+ios/App/Pods/

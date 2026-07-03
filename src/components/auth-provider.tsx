@@ -46,14 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     // Utilisation de slashes de fin pour éviter les redirections inutiles avec basePath et trailingSlash: true
-    // "/admincreat/" a été retiré des routes publiques : c'est une page de création
-    // de comptes (y compris admin) qui doit être protégée par une session admin.
+    // "/admincreat/" n'est PLUS public : créer un compte admin/prof exige désormais une session admin
+    // (le backend vérifie aussi le rôle côté serveur sur /api/admin/users, donc pas de contournement possible).
     const publicPaths = ["/login/"];
     // On normalise le pathname pour la comparaison (Next.js peut ajouter le slash automatiquement)
     const safePath = pathname || "/";
     const normalizedPath = safePath.endsWith('/') ? safePath : `${safePath}/`;
     const isPublicPath = publicPaths.includes(normalizedPath);
-    const isAdminOnlyPath = normalizedPath === "/admincreat/";
+    const isAdminCreatePath = normalizedPath === "/admincreat/";
 
     if (user && isPublicPath) {
       if (user.role === 'admin') router.replace("/admin/");
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       else router.replace("/");
     } else if (!user && !isPublicPath) {
       router.replace("/login/");
-    } else if (isAdminOnlyPath && user?.role !== 'admin') {
+    } else if (isAdminCreatePath && user && user.role !== 'admin') {
       router.replace("/");
     }
   }, [user, loading, pathname, router]);

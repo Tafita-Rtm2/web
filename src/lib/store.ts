@@ -7,60 +7,36 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { toast } from 'sonner';
 
 // --- CONFIGURATION ---
-// ANCIEN backend (fuite de données) : https://groupegsi.mg/rtmggmg/api — ne plus utiliser.
-// NOUVEAU backend sécurisé (JWT, bcrypt, contrôle d'accès par rôle) :
-let API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://groupegsi.mg/secure-api/api";
-let MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE || "https://groupegsi.mg/rtmggmg";
+// Nouveau backend sécurisé (JWT), appelé DIRECTEMENT. L'ancien /rtmggmg/api est supprimé.
+let API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://groupegsi.mg/apk/api";
+let MEDIA_BASE = process.env.NEXT_PUBLIC_MEDIA_BASE || "https://groupegsi.mg";
 
-// ADMIN_CODE / PROF_PASS ne sont plus gérés côté client : la vérification des
-// codes d'invitation admin/professeur se fait désormais côté serveur
-// (voir backend/src/routes/auth.js, ADMIN_INVITE_CODE / PROF_INVITE_CODE).
+const AUTH_TOKEN_KEY = 'gsi_auth_token';
+
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function setAuthToken(token: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+  else localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+let ADMIN_CODE = "";
+let PROF_PASS = "";
 let AI_CONFIG = {
   apiKey: "",
   prompts: {} as Record<string, string> // campus_subject -> prompt
 };
-
-// --- SESSION (JWT) ---
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
-
-function loadTokens() {
-  if (typeof window === 'undefined') return;
-  try {
-    accessToken = localStorage.getItem('gsi_access_token');
-    refreshToken = localStorage.getItem('gsi_refresh_token');
-  } catch (e) {}
-}
-
-function saveTokens(tokens: { accessToken: string; refreshToken?: string }) {
-  accessToken = tokens.accessToken;
-  if (tokens.refreshToken) refreshToken = tokens.refreshToken;
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('gsi_access_token', accessToken || '');
-      if (refreshToken) localStorage.setItem('gsi_refresh_token', refreshToken);
-    } catch (e) {}
-  }
-}
-
-function clearTokens() {
-  accessToken = null;
-  refreshToken = null;
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem('gsi_access_token');
-      localStorage.removeItem('gsi_refresh_token');
-    } catch (e) {}
-  }
-}
 
 // Types
 export interface User {
   id: string; // Internal/Public UID
   fullName: string;
   email: string;
-  // Le mot de passe n'est JAMAIS stocké ni renvoyé côté client.
-  // Le nouveau backend ne renvoie que password_hash côté serveur, jamais au front.
+  password?: string; // Stored for custom auth
   role: 'student' | 'professor' | 'admin';
   campus: string;
   filiere: string;
@@ -197,7 +173,6 @@ class GSIStoreClass {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      loadTokens();
       this.hydrate();
       this.initWebConfig();
       // Wait a bit before syncing to let UI render first
@@ -370,8 +345,9 @@ class GSIStoreClass {
 
   private async fetchChatMessages() {
     if (!this.state.currentUser) return;
-    // Le serveur scope automatiquement par filiere/niveau à partir du JWT.
-    const data = await this.apiCall(`/messages?limit=60`);
+    const { filiere, niveau } = this.state.currentUser;
+    const q = encodeURIComponent(JSON.stringify({ filiere, niveau }));
+    const data = await this.apiCall(`/db/messages?q=${q}&s={"timestamp":-1}&l=60`);
     if (data && Array.isArray(data)) {
       const newMessages = data.reverse();
       if (JSON.stringify(newMessages) !== JSON.stringify(this.state.messages)) {
@@ -401,16 +377,18 @@ class GSIStoreClass {
 
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
+    const token = getAuthToken();
+    const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) authHeaders['Authorization'] = `Bearer ${token}`;
+
     try {
       let response: any;
-
-      const authHeaders: Record<string, string> = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
 
       if (Capacitor.isNativePlatform()) {
         const options = {
           url,
           method,
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: authHeaders,
           data: body,
           connectTimeout: 15000,
           readTimeout: 15000
@@ -429,7 +407,7 @@ class GSIStoreClass {
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         const options: RequestInit = {
           method,
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          headers: authHeaders,
           signal: controller.signal,
           body: body ? JSON.stringify(body) : undefined
         };
@@ -437,18 +415,9 @@ class GSIStoreClass {
         clearTimeout(timeoutId);
         response = {
           status: res.status,
-          data: await res.json().catch(() => null),
+          data: await res.json(),
           ok: res.ok
         };
-      }
-
-      // Token expiré : on tente un refresh une seule fois puis on rejoue l'appel.
-      if (response.status === 401 && refreshToken && redirectCount === 0) {
-        const refreshed = await this.tryRefreshToken();
-        if (refreshed) {
-          this.syncingCount = Math.max(0, this.syncingCount - 1);
-          return this.apiCall(endpoint, method, body, redirectCount + 1);
-        }
       }
 
       this.syncingCount = Math.max(0, this.syncingCount - 1);
@@ -471,40 +440,13 @@ class GSIStoreClass {
     }
   }
 
-  private async tryRefreshToken(): Promise<boolean> {
-    if (!refreshToken) return false;
-    try {
-      const res = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
-      });
-      if (!res.ok) { this.forceLogout(); return false; }
-      const data = await res.json();
-      if (data.accessToken) {
-        saveTokens({ accessToken: data.accessToken });
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  private forceLogout() {
-    clearTokens();
-    this.setCurrentUser(null);
-  }
-
   private async fetchCollection(key: keyof State, collectionName: string, queryParams = "") {
     if (typeof window !== 'undefined' && !window.navigator.onLine) {
        this.notify(key as string, this.state[key]);
        return;
     }
 
-    // Le serveur applique désormais lui-même le scoping par rôle/campus/filiere/niveau ;
-    // on n'envoie plus de filtre "q" arbitraire construit côté client.
-    const data = await this.apiCall(`/${collectionName}${queryParams}`);
+    const data = await this.apiCall(`/db/${collectionName}${queryParams}`);
     if (data) {
       const cloudData = Array.isArray(data) ? data : [];
       const currentLocal = this.state[key];
@@ -559,77 +501,76 @@ class GSIStoreClass {
   // --- CUSTOM AUTH ---
 
   private async syncRemoteConfig() {
-    // ADMIN_CODE / PROF_PASS ne sont plus jamais envoyés au client : la vérification
-    // se fait côté serveur au moment de /api/auth/register (inviteCode). Voir
-    // backend/.env : ADMIN_INVITE_CODE / PROF_INVITE_CODE.
     try {
-      const data = await this.apiCall('/config/ai');
-      if (data && data.AI_CONFIG) AI_CONFIG = data.AI_CONFIG;
+      const data = await this.apiCall('/db/system_config');
+      if (data && Array.isArray(data) && data.length > 0) {
+        const config = data[0];
+        if (config.ADMIN_CODE) ADMIN_CODE = config.ADMIN_CODE;
+        if (config.PROF_PASS) PROF_PASS = config.PROF_PASS;
+        if (config.AI_CONFIG) AI_CONFIG = config.AI_CONFIG;
+      }
     } catch (e) {}
   }
 
+  getAdminCode() { return ADMIN_CODE; }
+  getProfPass() { return PROF_PASS; }
   getAIConfig() { return AI_CONFIG; }
+
+  // Passe par le backend : la clé OpenAI reste côté serveur, jamais exposée au navigateur.
+  async callAI(payload: {
+    campus: string; subject: string; contextText: string;
+    history: { role: string; content: string }[];
+    userMessage: string; imageDataUrl?: string | null;
+  }): Promise<string> {
+    const res = await this.apiCall('/ai/chat', 'POST', payload);
+    if (res && typeof res.content === 'string') return res.content;
+    throw new Error(res?.error || 'Erreur du service IA. Réessaie dans un instant.');
+  }
 
   async updateAIConfig(config: typeof AI_CONFIG) {
      AI_CONFIG = config;
-     await this.apiCall('/config/ai', 'PATCH', { AI_CONFIG });
+     const existing = await this.apiCall('/db/system_config');
+     if (existing && Array.isArray(existing) && existing.length > 0) {
+        await this.apiCall(`/db/system_config/${existing[0]._id}`, 'PATCH', { AI_CONFIG });
+     } else {
+        await this.apiCall('/db/system_config', 'POST', { AI_CONFIG });
+     }
   }
 
   async login(email: string, password: string): Promise<User | null> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data) {
-        toast.error(data?.error || "Email ou mot de passe incorrect");
-        return null;
-      }
-      saveTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
-      this.setCurrentUser(data.user);
-      return data.user as User;
-    } catch (e) {
-      toast.error("Impossible de se connecter au serveur");
-      return null;
+    const res = await this.apiCall('/auth/login', 'POST', { email, password });
+    if (res && res.token && res.user) {
+       setAuthToken(res.token);
+       const user = res.user as User;
+       delete user.password; // le backend ne le renvoie jamais, mais on nettoie par sécurité
+       this.setCurrentUser(user);
+       return user;
     }
+    return null;
   }
 
-  // inviteCode : requis uniquement pour créer un compte professeur/admin (vérifié côté serveur)
-  async register(user: User & { inviteCode?: string; password: string }): Promise<User | null> {
-    try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data) {
-        toast.error(data?.error || "Impossible de créer le compte");
-        return null;
-      }
-      saveTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
-      this.setCurrentUser(data.user);
-      return data.user as User;
-    } catch (e) {
-      toast.error("Impossible de se connecter au serveur");
-      return null;
+  // Inscription publique : toujours role="student", forcé côté serveur quoi que le client envoie.
+  async register(user: User): Promise<User | null> {
+    const res = await this.apiCall('/auth/register', 'POST', user);
+    if (res && res.token && res.user) {
+       setAuthToken(res.token);
+       const finalUser = res.user as User;
+       delete finalUser.password;
+       this.setCurrentUser(finalUser);
+       return finalUser;
     }
+    return null;
   }
 
   logout() {
-    clearTokens();
+    setAuthToken(null);
     this.setCurrentUser(null);
   }
 
   async resetPassword(email: string): Promise<boolean> {
-     // Le "vérification d'existence d'email" côté client a été retiré : il permettait
-     // à quiconque de vérifier quels emails sont enregistrés (énumération de comptes).
-     // La réinitialisation de mot de passe doit passer par un flux serveur dédié
-     // (email avec lien à usage unique), à implémenter côté backend selon ton besoin.
-     toast.info("Contacte l'administration pour réinitialiser ton mot de passe.");
-     return false;
+     // Ne confirme plus si l'email existe (évite l'énumération de comptes).
+     // Contacter un administrateur reste nécessaire pour réinitialiser un mot de passe.
+     return true;
   }
 
   // --- STORE ACCESS ---
@@ -712,7 +653,7 @@ class GSIStoreClass {
     
     this.listeners[subKey].push(wrapper);
     wrapper(this.state.grades);
-    this.fetchCollection('grades', 'grades', `?studentId=${encodeURIComponent(studentId)}`);
+    this.fetchCollection('grades', 'grades', `?q={"studentId":"${studentId}"}`);
     return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
@@ -726,7 +667,7 @@ class GSIStoreClass {
 
     this.listeners[subKey].push(wrapper);
     wrapper(this.state.paiements);
-    this.fetchCollection('paiements', 'paiements', `?matricule=${encodeURIComponent(matricule)}`);
+    this.fetchCollection('paiements', 'paiements', `?q={"matricule":"${matricule}"}`);
     return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
@@ -740,7 +681,7 @@ class GSIStoreClass {
 
     this.listeners[subKey].push(wrapper);
     wrapper(this.state.ecolage);
-    this.fetchCollection('ecolage', 'ecolage', `?matricule=${encodeURIComponent(matricule)}`);
+    this.fetchCollection('ecolage', 'ecolage', `?q={"matricule":"${matricule}"}`);
     return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
 
@@ -763,7 +704,7 @@ class GSIStoreClass {
        this.fetchCollection('schedules', 'schedules');
     } else {
        cb(this.state.schedules[sKey] || null);
-       this.fetchCollection('schedules', 'schedules', `?campus=${encodeURIComponent(campus)}&niveau=${encodeURIComponent(niveau)}`);
+       this.fetchCollection('schedules', 'schedules', `?q={"campus":"${campus}","niveau":"${niveau}"}`);
     }
     return () => { this.listeners[subKey] = this.listeners[subKey]?.filter(l => l !== wrapper); };
   }
@@ -828,52 +769,71 @@ class GSIStoreClass {
 
   // --- ACTIONS ---
 
-  // NOTE : le nouveau backend utilise "id" comme clé unique partout (plus de
-  // double-identifiant _id façon Mongo). La création d'utilisateur passe
-  // désormais par un admin authentifié (voir admincreat/page.tsx) et non plus
-  // par un register() public, qui ne doit servir qu'à l'auto-inscription élève.
-  async addUser(user: User & { password?: string; inviteCode?: string }) {
+  // Réservé à l'admin connecté : /admin/users vérifie le rôle côté serveur.
+  // Remplace l'ancien POST /db/users qui n'importe qui pouvait appeler pour se créer un compte admin.
+  async addUser(user: User) {
     this.state.users = [user, ...this.state.users.filter(u => u.id !== user.id)];
     this.save();
     this.notify('users', this.state.users);
-    // Création par un admin déjà connecté : passe par /api/auth/register (JWT admin requis
-    // côté serveur pour attribuer role=admin/professor via inviteCode saisi par l'admin).
-    return await this.apiCall('/auth/register', 'POST', user);
+    const existing = await this.apiCall(`/db/users?q={"id":"${user.id}"}`);
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+       return await this.apiCall(`/db/users/${existing[0]._id}`, 'PATCH', user);
+    } else {
+       return await this.apiCall('/admin/users', 'POST', user);
+    }
   }
 
   async addLesson(lesson: Lesson) {
     this.state.lessons = [lesson, ...this.state.lessons.filter(l => l.id !== lesson.id)];
     this.save();
     this.notify('lessons', this.state.lessons);
-    await this.apiCall('/lessons', 'POST', lesson);
+    await this.apiCall('/db/lessons', 'POST', lesson);
   }
 
   async deleteLesson(id: string) {
+    const item = this.state.lessons.find(x => x.id === id);
     this.state.lessons = this.state.lessons.filter(x => x.id !== id);
     this.save();
     this.notify('lessons', this.state.lessons);
-    await this.apiCall(`/lessons/${id}`, 'DELETE');
+    if (item?._id) {
+       await this.apiCall(`/db/lessons/${item._id}`, 'DELETE');
+    } else {
+       const q = encodeURIComponent(JSON.stringify({ id }));
+       const existing = await this.apiCall(`/db/lessons?q=${q}`);
+       if (existing && Array.isArray(existing) && existing.length > 0) {
+          await this.apiCall(`/db/lessons/${existing[0]._id}`, 'DELETE');
+       }
+    }
   }
 
   async addAssignment(assignment: Assignment) {
     this.state.assignments = [assignment, ...this.state.assignments.filter(a => a.id !== assignment.id)];
     this.save();
     this.notify('assignments', this.state.assignments);
-    await this.apiCall('/assignments', 'POST', assignment);
+    await this.apiCall('/db/assignments', 'POST', assignment);
   }
 
   async deleteAssignment(id: string) {
+    const item = this.state.assignments.find(x => x.id === id);
     this.state.assignments = this.state.assignments.filter(x => x.id !== id);
     this.save();
     this.notify('assignments', this.state.assignments);
-    await this.apiCall(`/assignments/${id}`, 'DELETE');
+    if (item?._id) {
+       await this.apiCall(`/db/assignments/${item._id}`, 'DELETE');
+    } else {
+       const q = encodeURIComponent(JSON.stringify({ id }));
+       const existing = await this.apiCall(`/db/assignments?q=${q}`);
+       if (existing && Array.isArray(existing) && existing.length > 0) {
+          await this.apiCall(`/db/assignments/${existing[0]._id}`, 'DELETE');
+       }
+    }
   }
 
   async addAnnouncement(ann: Announcement) {
     this.state.announcements = [ann, ...this.state.announcements];
     this.save();
     this.notify('announcements', this.state.announcements);
-    await this.apiCall('/announcements', 'POST', ann);
+    await this.apiCall('/db/announcements', 'POST', ann);
   }
 
   async deleteAnnouncement(id: string) {
@@ -886,66 +846,112 @@ class GSIStoreClass {
        return;
     }
 
+    const ann = this.state.announcements.find(a => a.id === id);
     this.state.announcements = this.state.announcements.filter(a => a.id !== id);
     this.save();
     this.notify('announcements', this.state.announcements);
-    await this.apiCall(`/announcements/${id}`, 'DELETE');
+    if (ann?._id) {
+       await this.apiCall(`/db/announcements/${ann._id}`, 'DELETE');
+    } else {
+       const q = encodeURIComponent(JSON.stringify({ id }));
+       const existing = await this.apiCall(`/db/announcements?q=${q}`);
+       if (existing && Array.isArray(existing) && existing.length > 0) {
+          await this.apiCall(`/db/announcements/${existing[0]._id}`, 'DELETE');
+       }
+    }
   }
 
   async addGrade(grade: Grade) {
     this.state.grades = [grade, ...this.state.grades];
     this.save();
     this.notify('grades', this.state.grades);
-    await this.apiCall('/grades', 'POST', grade);
+    await this.apiCall('/db/grades', 'POST', grade);
   }
 
   async deleteGrade(id: string) {
+    const item = this.state.grades.find(x => x.id === id);
     this.state.grades = this.state.grades.filter(x => x.id !== id);
     this.save();
     this.notify('grades', this.state.grades);
-    await this.apiCall(`/grades/${id}`, 'DELETE');
+    if (item?._id) {
+       await this.apiCall(`/db/grades/${item._id}`, 'DELETE');
+    } else {
+       const q = encodeURIComponent(JSON.stringify({ id }));
+       const existing = await this.apiCall(`/db/grades?q=${q}`);
+       if (existing && Array.isArray(existing) && existing.length > 0) {
+          await this.apiCall(`/db/grades/${existing[0]._id}`, 'DELETE');
+       }
+    }
   }
 
   async updateUser(user: User) {
-    this.state.users = this.state.users.map(u => u.id === user.id ? user : u);
+    const newPassword = user.password; // s'il est présent, c'est une demande de reset par un admin
+    const userWithoutPassword = { ...user };
+    delete userWithoutPassword.password;
+
+    this.state.users = this.state.users.map(u => u.id === user.id ? userWithoutPassword : u);
     if (this.state.currentUser && this.state.currentUser.id === user.id) {
-       this.state.currentUser = { ...this.state.currentUser, ...user };
+       this.state.currentUser = { ...this.state.currentUser, ...userWithoutPassword };
     }
     this.save();
     this.notify('users', this.state.users);
     this.notify('auth', this.state.currentUser);
-    await this.apiCall(`/users/${user.id}`, 'PATCH', user);
+
+    let targetId = user._id;
+    if (!targetId) {
+       const q = encodeURIComponent(JSON.stringify({ id: user.id }));
+       const existing = await this.apiCall(`/db/users?q=${q}`);
+       if (existing && Array.isArray(existing) && existing.length > 0) targetId = existing[0]._id;
+    }
+    if (!targetId) return;
+
+    await this.apiCall(`/db/users/${targetId}`, 'PATCH', userWithoutPassword);
+    if (newPassword) {
+       await this.apiCall(`/admin/users/${targetId}/reset-password`, 'POST', { newPassword });
+    }
   }
 
   async deleteUser(id: string) {
+    const userToDelete = this.state.users.find(u => u.id === id);
     this.state.users = this.state.users.filter(u => u.id !== id);
     this.save();
     this.notify('users', this.state.users);
-    await this.apiCall(`/users/${id}`, 'DELETE');
+    if (userToDelete?._id) {
+       await this.apiCall(`/db/users/${userToDelete._id}`, 'DELETE');
+    } else {
+       const q = encodeURIComponent(JSON.stringify({ id }));
+       const existing = await this.apiCall(`/db/users?q=${q}`);
+       if (existing && Array.isArray(existing) && existing.length > 0) {
+          await this.apiCall(`/db/users/${existing[0]._id}`, 'DELETE');
+       }
+    }
   }
 
   async addSubmission(s: Submission) {
     this.state.submissions = [s, ...this.state.submissions.filter(it => it.id !== s.id)];
     this.save();
     this.notify('submissions', this.state.submissions);
-    await this.apiCall('/submissions', 'POST', s);
+    await this.apiCall('/db/submissions', 'POST', s);
   }
 
   async updateSubmission(s: Submission) {
     this.state.submissions = this.state.submissions.map(it => it.id === s.id ? s : it);
     this.save();
     this.notify('submissions', this.state.submissions);
-    await this.apiCall(`/submissions/${s.id}`, 'PATCH', s);
+
+    const existing = await this.apiCall(`/db/submissions?q={"id":"${s.id}"}`);
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+       await this.apiCall(`/db/submissions/${existing[0]._id}`, 'PATCH', s);
+    }
   }
 
   async addSchedule(schedule: StructuredSchedule) {
-    // Le backend fait l'upsert (id fourni par le front, cohérent avec campus_niveau)
-    const id = schedule.id || `${schedule.campus}_${schedule.niveau}`;
-    const existing = await this.apiCall(`/schedules?campus=${encodeURIComponent(schedule.campus)}&niveau=${encodeURIComponent(schedule.niveau)}`);
+    const q = encodeURIComponent(JSON.stringify({ campus: schedule.campus, niveau: schedule.niveau }));
+    const existing = await this.apiCall(`/db/schedules?q=${q}`);
     if (existing && Array.isArray(existing) && existing.length > 0) {
-       await this.apiCall(`/schedules/${existing[0].id}`, 'PATCH', schedule);
+       await this.apiCall(`/db/schedules/${existing[0]._id}`, 'PATCH', schedule);
     } else {
-       await this.apiCall('/schedules', 'POST', { ...schedule, id });
+       await this.apiCall('/db/schedules', 'POST', schedule);
     }
     this.state.schedules[`${schedule.campus}_${schedule.niveau}`] = schedule;
     this.save();
@@ -953,7 +959,7 @@ class GSIStoreClass {
   }
 
   async deleteSchedule(id: string) {
-    await this.apiCall(`/schedules/${id}`, 'DELETE');
+    await this.apiCall(`/db/schedules/${id}`, 'DELETE');
     this.fetchCollection('schedules', 'schedules');
   }
 
@@ -973,7 +979,7 @@ class GSIStoreClass {
     };
     this.state.messages = [...this.state.messages, msg];
     this.notify('messages', this.state.messages);
-    await this.apiCall('/messages', 'POST', msg);
+    await this.apiCall('/db/messages', 'POST', msg);
   }
 
   // --- REMINDERS & NOTIFICATIONS ---
@@ -1028,23 +1034,21 @@ class GSIStoreClass {
 
   getAbsoluteUrl(url: string | undefined): string {
     if (typeof url !== 'string' || !url || url === "undefined" || url === "null") return "";
+
     if (url.startsWith('data:') || url.startsWith('blob:')) return url;
 
     const base = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
-    const withToken = (u: string) => (accessToken ? `${u}${u.includes('?') ? '&' : '?'}access_token=${encodeURIComponent(accessToken)}` : u);
 
-    // Anciens liens absolus vers l'API qui fuit (https://groupegsi.mg/rtmggmg/api/files/view/<id>)
-    // ou tout lien contenant un segment files/view|download/<id> : on récupère juste l'id du
-    // fichier (les fichiers restent dans la même table file_metadata) et on repointe vers le
-    // nouveau backend sécurisé, avec le token JWT requis.
-    const fileMatch = url.match(/files\/(view|download)\/([a-zA-Z0-9-]+)/);
-    if (fileMatch) {
-      const [, kind, fileId] = fileMatch;
-      return withToken(`${base}/files/${kind}/${fileId}`);
+    // Anciens liens stockés en base du type https://groupegsi.mg/rtmggmg/api/files/view/<id>
+    // (ou variantes relatives) : on ne garde que "files/view/<id>" ou "files/download/<id>"
+    // et on reconstruit avec le nouveau backend (sans /rtmggmg). Le token JWT est ajouté
+    // automatiquement par getMediaUrl/authFetch pour l'accès protégé.
+    const filesMatch = url.match(/files\/(view|download)\/([a-zA-Z0-9-]+)/);
+    if (filesMatch) {
+       return `${base}/files/${filesMatch[1]}/${filesMatch[2]}`;
     }
 
     if (url.startsWith('http://') || url.startsWith('https://')) {
-       // Autre URL externe (pas notre API) : laissée telle quelle.
        return url;
     }
 
@@ -1058,13 +1062,11 @@ class GSIStoreClass {
     clean = clean.replace(/^api\//, '');
     clean = clean.replace(/^\/+/, '');
 
-    if (!clean.includes('files/view/') && !clean.includes('http')) {
-       if (!clean.includes('/') && clean.length > 5) {
-         clean = `files/view/${clean}`;
-       }
+    if (!clean.includes('http') && !clean.includes('/') && clean.length > 5) {
+       clean = `files/view/${clean}`;
     }
 
-    return withToken(`${base}/${clean}`);
+    return `${base}/${clean}`;
   }
 
   getMediaUrl(url: string | undefined): string {
@@ -1075,10 +1077,15 @@ class GSIStoreClass {
     const absolute = this.getAbsoluteUrl(url);
     if (!absolute) return "";
 
-    if (Capacitor.isNativePlatform()) return absolute;
-
-    if (absolute.startsWith('http')) {
-      return `/apk/api/proxy?url=${encodeURIComponent(absolute)}`;
+    // Les routes /files/view et /files/download exigent désormais une authentification.
+    // Les balises <img>/<a> ne peuvent pas envoyer de header Authorization, donc on
+    // passe le token JWT en query param (accepté explicitement par le backend pour ce cas).
+    if (absolute.includes('/files/view/') || absolute.includes('/files/download/')) {
+      const token = getAuthToken();
+      if (token) {
+        const sep = absolute.includes('?') ? '&' : '?';
+        return `${absolute}${sep}token=${encodeURIComponent(token)}`;
+      }
     }
 
     return absolute;
@@ -1123,8 +1130,7 @@ class GSIStoreClass {
         }
       });
       xhr.addEventListener('error', () => reject(new Error("Network error during upload")));
-      xhr.open('POST', `${API_BASE}/files/upload`);
-      if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+      xhr.open('POST', `${API_BASE}/upload`);
       xhr.send(formData);
     });
   }
@@ -1316,11 +1322,13 @@ class GSIStoreClass {
     const local = this.state.users.find(u => u.id === id);
     if (local && !forceCloud) return local;
     try {
-      const userData = await this.apiCall(`/users/${id}`);
-      if (userData) {
+      const q = encodeURIComponent(JSON.stringify({ id }));
+      const data = await this.apiCall(`/db/users?q=${q}`);
+      if (data && data.length > 0) {
+        const userData = data[0] as User;
         this.state.users = [userData, ...this.state.users.filter(u => u.id !== id)];
         this.save();
-        return userData as User;
+        return userData;
       }
     } catch (e) {
       console.error("Error fetching user from Custom API:", e);

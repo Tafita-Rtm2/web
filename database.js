@@ -8,9 +8,9 @@ const pool = mysql.createPool({
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'gsi_database',
     waitForConnections: true,
-    connectionLimit: 1000, // 1000 connexions pour 2000 utilisateurs
+    connectionLimit: 10, // Hébergement mutualisé cPanel : limite MySQL souvent basse (10-25). Augmente si ton offre le permet.
     queueLimit: 0,
-    maxIdle: 500, // Maintenir 500 connexions idle
+    maxIdle: 5,
     idleTimeout: 60000, // 60 secondes
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
@@ -40,11 +40,7 @@ async function testConnection() {
         console.error('   3. MySQL est-il démarré sur le serveur ?');
         console.error('   4. La base de données existe-t-elle ?');
         console.error('');
-        console.error('📁 Fichier .env attendu avec:');
-        console.error('   DB_HOST=localhost');
-        console.error('   DB_NAME=groupegs_messenger-ai-agent');
-        console.error('   DB_USER=groupegs_messenger-ai-agent');
-        console.error('   DB_PASSWORD=GSI-data-base');
+        console.error('📁 Vérifie ton fichier .env (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD)');
         console.error('');
         return false;
     }

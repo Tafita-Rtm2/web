@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles, ArrowLeft, Camera } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import Link from "next/link";
-import { GSIStore } from "@/lib/store";
+import { GSIStore, User } from "@/lib/store";
 import { toast } from "sonner";
 import { CAMPUSES, CAMPUS_FILIERES, NIVEAUX } from "@/lib/constants";
 
@@ -38,12 +38,12 @@ export default function RegisterPage() {
     setLoading(true);
     const toastId = toast.loading("Création de votre compte...");
     try {
-      const newUser = {
+      const newUser: User = {
         id: Math.random().toString(36).substr(2, 9),
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
-        role: 'student' as const,
+        role: 'student',
         campus: formData.campus,
         filiere: formData.filiere,
         niveau: formData.niveau,
